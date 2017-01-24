@@ -70,6 +70,16 @@ class PostgresqlMoneyTest < ActiveRecord::PostgreSQLTestCase
     assert_equal new_value, money.wealth
   end
 
+  def test_create_and_update_money_numeric
+    money = PostgresqlMoney.create(wealth: "987.65")
+    assert_equal 987.65, money.wealth
+
+    money.wealth = 123.45
+    money.save!
+    money.reload
+    assert_equal 123.45, money.wealth
+  end
+
   def test_update_all_with_money_string
     money = PostgresqlMoney.create!
     PostgresqlMoney.update_all(wealth: "987.65")
