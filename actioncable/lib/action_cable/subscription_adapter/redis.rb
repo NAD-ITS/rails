@@ -108,7 +108,7 @@ module ActionCable
 
           def shutdown
             @subscription_lock.synchronize do
-              return if @thread.nil?
+              return if @thread.nil? || !@thread.alive?
 
               when_connected do
                 send_command('unsubscribe')
@@ -129,6 +129,7 @@ module ActionCable
 
           def remove_channel(channel)
             @subscription_lock.synchronize do
+              return if @thread.nil? || !@thread.alive?
               when_connected { send_command('unsubscribe', channel) }
             end
           end
@@ -139,11 +140,19 @@ module ActionCable
 
           private
             def ensure_listener_running
+              @thread = nil if @thread && !@thread.alive?
               @thread ||= Thread.new do
-                Thread.current.abort_on_exception = true
+                # We want to just let it fail but not abort the thread if failed to connect to redis
+                # so that it won't constantly trying restart puma worker
+                #Thread.current.abort_on_exception = true
 
                 conn = @adapter.redis_connection_for_subscriptions
-                listen conn
+                begin
+                  listen conn
+                rescue StandardError => e
+                  puts "Redis failed to connect: #{e}"
+                  raise e
+                end
               end
             end
 
